@@ -1,0 +1,60 @@
+# Render Blueprint Configuration for EduRAG
+# This file configures deployment for the backend service from a monorepo
+
+services:
+  # Backend API Service
+  - type: web
+    name: edurag-backend
+    runtime: python
+    region: oregon  # Cambia a tu región preferida
+    plan: free      # Cambia a "starter" ($7/mes) para always-on
+    
+    # ⚠️ IMPORTANTE: Root directory apunta al subdirectorio del backend
+    rootDir: edurag/backend
+    
+    # Build configuration
+    buildCommand: pip install -r requirements.txt
+    
+    # Start command - usa $PORT proporcionado por Render
+    startCommand: gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    
+    # Health check
+    healthCheckPath: /
+    
+    # Environment variables
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      
+      # Database & Storage (Supabase)
+      - key: SUPABASE_URL
+        sync: false  # Debes configurarlo manualmente en Render dashboard
+      
+      - key: SUPABASE_KEY
+        sync: false  # Debes configurarlo manualmente en Render dashboard
+      
+      # OpenAI API
+      - key: OPENAI_API_KEY
+        sync: false  # Debes configurarlo manualmente en Render dashboard
+      
+      # Optional: Environment indicator
+      - key: ENVIRONMENT
+        value: production
+    
+    # Auto-deploy settings
+    autoDeploy: true  # Auto-deploy cuando haya push a master/main
+    
+    # Branch to deploy from
+    branch: master  # Cambia a "main" si tu rama principal es main
+
+# Notas:
+# 1. Este archivo debe estar en la RAÍZ del repositorio (Proyecto_Final/render.yaml)
+# 2. Las variables marcadas con "sync: false" deben configurarse manualmente en:
+#    https://dashboard.render.com → Tu servicio → Environment
+# 3. Para usar este archivo:
+#    - Ve a Render Dashboard
+#    - New → Blueprint
+#    - Conecta tu repositorio GitHub
+#    - Render detectará este archivo automáticamente
+# 4. El plan "free" hace sleep después de 15 min de inactividad (cold start ~30s)
+#    Actualiza a "starter" ($7/mes) para always-on si lo necesitas

@@ -327,7 +327,8 @@ const loadAnalytics = async () => {
   loading.value = true
   error.value = null
   try {
-    const response = await axios.get('http://localhost:8000/api/analytics/detailed')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const response = await axios.get(`${apiUrl}/api/analytics/detailed`)
     analytics.value = response.data
   } catch (err) {
     console.error('Error loading analytics:', err)

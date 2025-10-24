@@ -211,7 +211,8 @@ const loadCourseData = async () => {
     materials.value = materialsResponse.data.data || materialsResponse.data
     
     // Load enrollments with student details
-    const enrollmentsResponse = await axios.get('http://localhost:8000/api/enrollments')
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+    const enrollmentsResponse = await axios.get(`${apiUrl}/api/enrollments`)
     const allEnrollments = enrollmentsResponse.data.data || enrollmentsResponse.data
     enrolledStudents.value = allEnrollments.filter(e => e.course_id === courseId)
     

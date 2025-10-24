@@ -1,19 +1,8 @@
 {
-  "version": 2,
-  "name": "edurag-frontend",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "vite",
-  "public": false,
-  
-  "env": {
-    "VITE_API_URL": {
-      "description": "URL del backend API (ej: https://edurag-backend.onrender.com)",
-      "required": true
-    }
-  },
   
   "routes": [
     {

@@ -19,11 +19,13 @@ class Settings(BaseSettings):
     # CORS settings - will be parsed from comma-separated string
     # 🔧 CONFIGURACIÓN CORS PARA PRODUCCIÓN
     # En desarrollo: http://localhost:5173,http://localhost:3000
-    # En producción: Agrega tu URL de Vercel aquí (ej: https://edu-rag-pc2z.vercel.app)
+    # En producción: URL de Vercel configurada
     # También puedes configurarlo vía variable de entorno CORS_ORIGINS en Render
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,https://edu-rag-pc2d.vercel.app/"
-    # ⚠️ IMPORTANTE: Reemplaza 'edu-rag-pc2z.vercel.app' con tu URL real de Vercel
-    # El wildcard *.vercel.app permite preview deployments
+    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:3000,https://edu-rag-pc2d.vercel.app"
+    # ✅ CORS configurado para permitir:
+    # - Desarrollo local: localhost:5173, localhost:3000
+    # - Producción Vercel: edu-rag-pc2d.vercel.app
+    # ⚠️ NOTA: NO uses barra diagonal (/) al final de las URLs
     
     @property
     def cors_origins_list(self) -> List[str]:

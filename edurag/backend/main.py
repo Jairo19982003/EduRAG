@@ -12,7 +12,7 @@ import time
 
 from app.core.config import settings
 from app.core.database import init_db, close_db
-from app.routers import auth, materials, analytics, students, courses, enrollments
+from app.routers import auth, materials, analytics, students, courses, enrollments, evaluations
 from app.routers import rag_vector as rag  # Use vector-based RAG
 
 # Configure logging
@@ -61,6 +61,7 @@ app.include_router(enrollments.router, prefix="/api/enrollments", tags=["Enrollm
 app.include_router(materials.router, prefix="/api/materials", tags=["Materials"])
 app.include_router(rag.router, prefix="/api/rag", tags=["RAG"])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["Analytics"])
+app.include_router(evaluations.router, prefix="/api/evaluations", tags=["Evaluations"])
 
 
 @app.middleware("http")

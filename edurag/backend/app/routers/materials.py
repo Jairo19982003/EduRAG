@@ -233,3 +233,84 @@ async def delete_material(material_id: str):
     except Exception as e:
         logger.error(f"Error deleting material: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{material_id}/download")
+async def download_material_pdf(material_id: str):
+    """
+    Descarga el archivo PDF de un material desde Supabase Storage
+    
+    Args:
+        material_id: ID del material
+    
+    Returns:
+        Archivo PDF para descargar
+    
+    Este endpoint es usado por n8n para obtener PDFs y procesarlos con OCR
+    """
+    try:
+        from fastapi.responses import StreamingResponse
+        import io
+        
+        supabase = get_supabase_client()
+        
+        # Obtener información del material
+        material_result = supabase.table("materials").select("*").eq("id", material_id).execute()
+        
+        if not material_result.data:
+            raise HTTPException(status_code=404, detail="Material not found")
+        
+        material = material_result.data[0]
+        file_url = material.get("file_url")
+        
+        if not file_url:
+            raise HTTPException(
+                status_code=404,
+                detail="Material does not have an associated PDF file"
+            )
+        
+        # Extraer el path del storage desde la URL
+        # file_url formato: "https://xxx.supabase.co/storage/v1/object/public/course-materials/path/to/file.pdf"
+        # o simplemente: "course-materials/path/to/file.pdf"
+        
+        if file_url.startswith("http"):
+            # Extraer path después de bucket name
+            parts = file_url.split("/course-materials/")
+            if len(parts) < 2:
+                raise HTTPException(status_code=500, detail="Invalid file URL format")
+            storage_path = parts[1]
+        else:
+            # Ya es un path relativo
+            storage_path = file_url.replace("course-materials/", "")
+        
+        # Descargar archivo desde Supabase Storage
+        try:
+            file_data = supabase.storage.from_("course-materials").download(storage_path)
+            
+            if not file_data:
+                raise HTTPException(
+                    status_code=404,
+                    detail="PDF file not found in storage"
+                )
+            
+            # Retornar como streaming response
+            return StreamingResponse(
+                io.BytesIO(file_data),
+                media_type="application/pdf",
+                headers={
+                    "Content-Disposition": f'attachment; filename="{material.get("title", "material")}.pdf"'
+                }
+            )
+            
+        except Exception as storage_error:
+            logger.error(f"Error downloading from storage: {str(storage_error)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to download PDF from storage: {str(storage_error)}"
+            )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in download endpoint: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))

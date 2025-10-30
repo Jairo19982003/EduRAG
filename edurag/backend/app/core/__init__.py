@@ -1,1 +1,0 @@
-"""Core Module - Configuration"""

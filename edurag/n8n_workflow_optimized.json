@@ -1,0 +1,343 @@
+{
+  "name": "EduRAG Telegram Bot - Optimizado",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ]
+      },
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "notes": "Recibe mensajes de Telegram"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== ROUTER + VALIDACIÓN COMBINADO =====\nconst message = $input.item.json.message;\nconst text = message.text || '';\nconst chatId = message.chat.id;\nconst username = message.from.username || 'usuario';\n\n// Detectar comando\nif (text === '/help') {\n  return [\n    {\n      json: {\n        command: 'help',\n        chatId: chatId,\n        message: '🤖 *EduRAG Bot - IA de Calificación*\\n\\n' +\n          '*Comandos:*\\n' +\n          '📋 `/pendientes` - Ver materiales sin calificar\\n' +\n          '🤖 `/calificar [ID]` - Calificar con IA\\n' +\n          '❓ `/help` - Esta ayuda\\n\\n' +\n          '✨ Powered by OpenAI gpt-4o-mini'\n      }\n    }\n  ];\n}\n\nif (text === '/pendientes') {\n  return [\n    {\n      json: {\n        command: 'pendientes',\n        chatId: chatId\n      }\n    }\n  ];\n}\n\n// Comando /calificar\nconst match = text.match(/^\\/calificar\\s+([a-f0-9-]+)/i);\nif (match) {\n  return [\n    {\n      json: {\n        command: 'calificar',\n        chatId: chatId,\n        materialId: match[1],\n        username: username\n      }\n    }\n  ];\n}\n\n// Comando desconocido\nreturn [\n  {\n    json: {\n      command: 'unknown',\n      chatId: chatId,\n      message: '❌ Comando no reconocido. Usa `/help` para ver comandos.'\n    }\n  }\n];"
+      },
+      "name": "Smart Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        460,
+        300
+      ],
+      "notes": "Detecta comando + Valida + Extrae parámetros"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "pendientes",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "pendientes"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "calificar",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "calificar"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.command }}",
+                    "rightValue": "help",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "help"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "name": "Route Command",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        680,
+        300
+      ],
+      "notes": "Distribuye según comando"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://edurag-zpil.onrender.com/api/evaluations/pending",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "limit",
+              "value": "10"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Get Pending",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        900,
+        180
+      ],
+      "notes": "Lista materiales sin calificar"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== FORMATEAR LISTA + CONSTRUIR RESPUESTA =====\nconst chatId = $('Smart Router').first().json.chatId;\n\n// La respuesta del HTTP viene como array de items\n// Cada item tiene un .json con los datos del material\nconst items = $input.all();\n\nif (!items || items.length === 0) {\n  return {\n    json: {\n      chatId: chatId,\n      message: '✅ No hay materiales pendientes de calificar.'\n    }\n  };\n}\n\nlet msg = '📚 *Materiales Pendientes*\\n\\n';\nitems.forEach((item, i) => {\n  const m = item.json;\n  msg += `${i+1}. *${m.title}*\\n`;\n  msg += `   📖 ${m.course_name}\\n`;\n  msg += `   🆔 \\`${m.material_id}\\`\\n\\n`;\n});\nmsg += '💡 Para calificar: `/calificar [ID]`';\n\nreturn {\n  json: {\n    chatId: chatId,\n    message: msg\n  }\n};"
+      },
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1120,
+        200
+      ],
+      "notes": "Formatea cualquier respuesta para Telegram"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== DOWNLOAD + PREPARE AI CONTEXT =====\nconst materialId = $('Smart Router').first().json.materialId;\nconst chatId = $('Smart Router').first().json.chatId;\n\n// Hacer request al backend para obtener info del material\nconst materialResponse = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `https://edurag-zpil.onrender.com/api/materials/${materialId}`,\n  json: true\n});\n\nif (!materialResponse) {\n  return {\n    json: {\n      chatId: chatId,\n      message: '❌ Material no encontrado',\n      error: true\n    }\n  };\n}\n\n// Preparar contexto para IA\nconst materialContext = `\nTítulo: ${materialResponse.title}\nTipo: ${materialResponse.material_type || 'PDF'}\nCurso: ${materialResponse.course?.name || 'No especificado'}\nDescripción: ${materialResponse.description || 'Sin descripción'}\n\nNOTA: Evaluación basada en metadata. \nPara evaluación completa implementar extracción de texto PDF.\n`;\n\nreturn {\n  json: {\n    chatId: chatId,\n    materialId: materialId,\n    materialTitle: materialResponse.title,\n    materialContext: materialContext\n  }\n};"
+      },
+      "name": "Fetch & Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        320
+      ],
+      "notes": "Obtiene material + Prepara contexto para IA"
+    },
+    {
+      "parameters": {
+        "resource": "text",
+        "operation": "message",
+        "modelId": "gpt-4o-mini",
+        "messages": {
+          "messageValues": [
+            {
+              "role": "system",
+              "content": "Eres un asistente educativo experto en evaluar materiales académicos.\n\nCRITERIOS:\n1. COHERENCIA (0-10): Sentido lógico, fluidez, sin contradicciones\n2. ESTRUCTURA (0-10): Organización, introducción/desarrollo/conclusión\n\nRESPONDE SOLO CON JSON (sin markdown):\n{\n  \"score\": 8.5,\n  \"coherence_score\": 9.0,\n  \"structure_score\": 8.0,\n  \"strengths\": [\"punto1\", \"punto2\", \"punto3\"],\n  \"improvements\": [\"mejora1\", \"mejora2\", \"mejora3\"]\n}"
+            },
+            {
+              "role": "user",
+              "content": "=Evalúa este material:\n\n{{ $json.materialContext }}"
+            }
+          ]
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokens": 500
+        }
+      },
+      "name": "AI Grading",
+      "type": "n8n-nodes-base.openAi",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        320
+      ],
+      "notes": "🤖 AGENTE DE IA - Califica el material"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ===== PARSE + SAVE + FORMAT COMBINADO =====\nconst aiResponse = $input.first().json.message.content;\nconst context = $('Fetch & Prepare').first().json;\nconst username = $('Smart Router').first().json.username;\n\n// 1. PARSEAR respuesta de IA\nlet evaluation;\ntry {\n  let clean = aiResponse.trim().replace(/```json\\n?/g, '').replace(/```/g, '');\n  evaluation = JSON.parse(clean);\n  \n  // Validar rangos\n  evaluation.score = Math.max(0, Math.min(10, evaluation.score || 5));\n  evaluation.coherence_score = Math.max(0, Math.min(10, evaluation.coherence_score || 5));\n  evaluation.structure_score = Math.max(0, Math.min(10, evaluation.structure_score || 5));\n  \n  if (!Array.isArray(evaluation.strengths)) evaluation.strengths = ['Error en parseo'];\n  if (!Array.isArray(evaluation.improvements)) evaluation.improvements = ['Revisar respuesta'];\n  \n} catch (error) {\n  console.error('Parse error:', error);\n  evaluation = {\n    score: 5.0,\n    coherence_score: 5.0,\n    structure_score: 5.0,\n    strengths: ['Error al parsear respuesta de IA'],\n    improvements: ['Verificar configuración']\n  };\n}\n\n// 2. GUARDAR en base de datos\ntry {\n  await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://edurag-zpil.onrender.com/api/evaluations',\n    body: {\n      material_id: context.materialId,\n      evaluated_by: username,\n      score: evaluation.score,\n      coherence_score: evaluation.coherence_score,\n      structure_score: evaluation.structure_score,\n      strengths: evaluation.strengths,\n      improvements: evaluation.improvements,\n      ai_model: 'gpt-4o-mini',\n      ai_analysis: evaluation,\n      pdf_type: 'metadata_only'\n    },\n    json: true\n  });\n} catch (saveError) {\n  console.error('Error guardando:', saveError);\n}\n\n// 3. FORMATEAR respuesta\nconst emoji = evaluation.score >= 9 ? '🌟' : evaluation.score >= 7 ? '✅' : evaluation.score >= 5 ? '⚠️' : '❌';\n\nconst message = `${emoji} *Calificación Completada*\\n\\n` +\n  `📄 *${context.materialTitle}*\\n\\n` +\n  `📊 *CALIFICACIÓN FINAL: ${evaluation.score.toFixed(1)}/10*\\n\\n` +\n  `*Desglose:*\\n` +\n  `• Coherencia: ${evaluation.coherence_score.toFixed(1)}/10\\n` +\n  `• Estructura: ${evaluation.structure_score.toFixed(1)}/10\\n\\n` +\n  `💪 *Fortalezas:*\\n` +\n  evaluation.strengths.slice(0, 4).map((s, i) => `${i+1}. ${s}`).join('\\n') + '\\n\\n' +\n  `📈 *Mejoras:*\\n` +\n  evaluation.improvements.slice(0, 4).map((s, i) => `${i+1}. ${s}`).join('\\n') + '\\n\\n' +\n  `🤖 _Evaluado con IA por @${username}_`;\n\nreturn {\n  json: {\n    chatId: context.chatId,\n    message: message\n  }\n};"
+      },
+      "name": "Process & Save",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        320
+      ],
+      "notes": "Parsea IA + Guarda DB + Formatea respuesta (TODO EN UNO)"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1560,
+        280
+      ],
+      "notes": "Envía respuesta final al usuario"
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Smart Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Smart Router": {
+      "main": [
+        [
+          {
+            "node": "Route Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Command": {
+      "main": [
+        [
+          {
+            "node": "Get Pending",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Fetch & Prepare",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Pending": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch & Prepare": {
+      "main": [
+        [
+          {
+            "node": "AI Grading",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Grading": {
+      "main": [
+        [
+          {
+            "node": "Process & Save",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process & Save": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
